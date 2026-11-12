@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Murukari Smart Check-In System</title>
+    <style>
+        :root {
+            --primary: #07810d;
+            --background: #f8fafc;
+            --surface: #ffffff;
+            --text: #1e293b;
+            --border: #e2e8f0;
+            --success: #16a34a;
+            --muted: #64748b;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+        body { background: var(--background); color: var(--text); padding: 2rem; }
+        .container { max-width: 1100px; margin: 0 auto; }
+        header { margin-bottom: 2rem; text-align: center; }
+        header h1 { color: var(--primary); font-size: 2.2rem; }
+        header p { color: var(--muted); }
+        
+        .grid { display: grid; grid-template-columns: 1fr 2fr; gap: 2rem; }
+        @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
+
+        .card { background: var(--surface); padding: 1.5rem; border-radius: 8px; border: 1fr solid var(--border); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .card h2 { font-size: 1.25rem; margin-bottom: 1rem; color: var(--text); }
+
+        form .form-group { margin-bottom: 1rem; }
+        form label { display: block; margin-bottom: 0.25rem; font-size: 0.9rem; font-weight: 600; }
+        form input, form select { width: 100%; padding: 0.6rem; border: 1px solid var(--border); border-radius: 4px; }
+        form button { width: 100%; padding: 0.75rem; background: var(--primary); color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
+        form button:hover { opacity: 0.9; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+        th, td { text-align: left; padding: 0.75rem; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+        th { background: #f1f5f9; color: var(--muted); }
+        
+        .badge { padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: bold; }
+        .badge-inside { background: #dcfce7; color: #15803d; }
+        .badge-out { background: #f1f5f9; color: #475569; }
+
+        .btn-checkout { background: #ef4444; color: white; border: none; padding: 0.3rem 0.6rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem; }
+        .btn-checkout:hover { background: #dc2626; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Murukari Smart Check-In System</h1>
+            <p>Visitor Registration & Entry Management Portal</p>
+        </header>
+
+        <div class="grid">
+            <!-- Registration Form -->
+            <div class="card">
+                <h2>New Visitor Entry</h2>
+                <form id="checkInForm">
+                    <div class="form-group">
+                        <label for="fullName">Full Name</label>
+                        <input type="text" id="fullName" required placeholder="John Doe">
+                    </div>
+                    <div class="form-group">
+                        <label for="phone">Phone Number</label>
+                        <input type="tel" id="phone" required placeholder="+250 780 000 000">
+                    </div>
+                    <div class="form-group">
+                        <label for="idNumber">National ID / Passport</label>
+                        <input type="text" id="idNumber" required placeholder="1199000000000000">
+                    </div>
+                    <div class="form-group">
+                        <label for="purpose">Purpose of Visit</label>
+                        <input type="text" id="purpose" required placeholder="Meeting / Delivery">
+                    </div>
+                    <button type="submit">Check In Visitor</button>
+                </form>
+            </div>
+
+            <!-- Dashboard Table -->
+            <div class="card">
+                <h2>Visitor Logs</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Purpose</th>
+                            <th>Check-In</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="visitorLogs">
+                        <tr><td colspan="5">Loading logs...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = '/api/checkins';
+
+        async function fetchCheckIns() {
+            try {
+                const res = await fetch(API_URL);
+                const data = await res.json();
+                renderTable(data);
+            } catch (err) {
+                console.error('Error fetching records:', err);
+            }
+        }
+
+        function renderTable(data) {
+            const tbody = document.getElementById('visitorLogs');
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5">No records found.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = data.map(item => `
+                <tr>
+                    <td><strong>${item.fullName}</strong><br><small style="color:#64748b">${item.phone}</small></td>
+                    <td>${item.purpose}</td>
+                    <td>${new Date(item.checkInTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
+                    <td>
+                        <span class="badge ${item.status === 'INSIDE' ? 'badge-inside' : 'badge-out'}">
+                            ${item.status}
+                        </span>
+                    </td>
+                    <td>
+                        ${item.status === 'INSIDE' 
+                            ? `<button class="btn-checkout" onclick="checkOut(${item.id})">Check Out</button>` 
+                            : '<small style="color:#64748b">Completed</small>'}
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        document.getElementById('checkInForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const payload = {
+                fullName: document.getElementById('fullName').value,
+                phone: document.getElementById('phone').value,
+                idNumber: document.getElementById('idNumber').value,
+                purpose: document.getElementById('purpose').value
+            };
+
+            try {
+                const res = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (res.ok) {
+                    document.getElementById('checkInForm').reset();
+                    fetchCheckIns();
+                }
+            } catch (err) {
+                console.error('Error adding check-in:', err);
+            }
+        });
+
+        async function checkOut(id) {
+            try {
+                const res = await fetch(`${API_URL}/${id}/checkout`, { method: 'PATCH' });
+                if (res.ok) {
+                    fetchCheckIns();
+                }
+            } catch (err) {
+                console.error('Error checking out:', err);
+            }
+        }
+
+        // Initial fetch
+        fetchCheckIns();
+    </script>
+</body>
+</html>
